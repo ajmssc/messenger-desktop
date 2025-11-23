@@ -1,6 +1,6 @@
 {
   "name": "messenger-desktop",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Desktop app for Facebook Messenger",
   "main": "dist/main.js",
   "scripts": {
@@ -12,7 +12,12 @@
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux"
   },
-  "keywords": ["messenger", "facebook", "electron", "desktop"],
+  "keywords": [
+    "messenger",
+    "facebook",
+    "electron",
+    "desktop"
+  ],
   "author": {
     "name": "JMS",
     "email": "jm@soumet.com"
@@ -41,11 +46,17 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     },
@@ -54,7 +65,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
