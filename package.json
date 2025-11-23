@@ -1,6 +1,6 @@
 {
   "name": "messenger-desktop",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Desktop app for Facebook Messenger",
   "main": "dist/main.js",
   "scripts": {
@@ -13,7 +13,10 @@
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "keywords": ["messenger", "facebook", "electron", "desktop"],
-  "author": "",
+  "author": {
+    "name": "JMS",
+    "email": "jm@soumet.com"
+  },
   "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
