@@ -109,16 +109,38 @@ function setupContentInjection(window: BrowserWindow): void {
 
         // Monitor unread count from title
         let lastCount = 0;
+        let lastCountTimestamp = 0;
+        let resetTimeoutId = null;
+        const RESET_TIMEOUT_MS = 3000; // Reset badge if no count seen for 3 seconds
+
         function checkUnreadCount() {
           const title = document.title;
           const match = title.match(/^\\((\\d+)\\)/);
-          // Only update if we find an actual count, don't reset to 0 on alternating titles
+
           if (match) {
+            // We found a count in the title
             const count = parseInt(match[1], 10);
+            lastCountTimestamp = Date.now();
+
+            // Clear any pending reset timeout
+            if (resetTimeoutId) {
+              clearTimeout(resetTimeoutId);
+              resetTimeoutId = null;
+            }
+
             if (count !== lastCount) {
               lastCount = count;
               window.postMessage({ type: 'unread-count', count }, '*');
             }
+
+            // Set a new timeout to reset if we don't see a count again
+            resetTimeoutId = setTimeout(() => {
+              // If we haven't seen a count in the timeout period, reset to 0
+              if (Date.now() - lastCountTimestamp >= RESET_TIMEOUT_MS && lastCount !== 0) {
+                lastCount = 0;
+                window.postMessage({ type: 'unread-count', count: 0 }, '*');
+              }
+            }, RESET_TIMEOUT_MS);
           }
         }
 
