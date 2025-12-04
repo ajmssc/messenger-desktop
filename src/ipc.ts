@@ -22,11 +22,11 @@ export function setupIpcHandlers(getMainWindow: () => BrowserWindow | null): voi
 
   // Handle badge count updates from preload
   ipcMain.on('update-badge', (_event, count: number) => {
-    // Only update if count is > 0 (don't reset from injected script, let title handler do that)
-    if (count > 0) {
-      updateBadge(count);
+    console.log('Updating badge to:', count);
+    updateBadge(count);
 
-      // Also update dock bounce on macOS for new messages
+    // Also update dock bounce on macOS for new messages (only when count increases)
+    if (count > 0) {
       const mainWindow = getMainWindow();
       if (process.platform === 'darwin' && !mainWindow?.isFocused()) {
         app.dock?.bounce('informational');
