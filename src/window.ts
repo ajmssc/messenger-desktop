@@ -132,15 +132,18 @@ function setupContentInjection(window: BrowserWindow): void {
               lastCount = count;
               window.postMessage({ type: 'unread-count', count }, '*');
             }
-
-            // Set a new timeout to reset if we don't see a count again
-            resetTimeoutId = setTimeout(() => {
-              // If we haven't seen a count in the timeout period, reset to 0
-              if (Date.now() - lastCountTimestamp >= RESET_TIMEOUT_MS && lastCount !== 0) {
-                lastCount = 0;
-                window.postMessage({ type: 'unread-count', count: 0 }, '*');
-              }
-            }, RESET_TIMEOUT_MS);
+          } else {
+            // No count in the title - if we previously had a count, start the reset timeout
+            if (lastCount > 0 && !resetTimeoutId) {
+              resetTimeoutId = setTimeout(() => {
+                // If we still haven't seen a count after the timeout, reset to 0
+                if (lastCount !== 0) {
+                  lastCount = 0;
+                  window.postMessage({ type: 'unread-count', count: 0 }, '*');
+                }
+                resetTimeoutId = null;
+              }, RESET_TIMEOUT_MS);
+            }
           }
         }
 
