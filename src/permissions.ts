@@ -1,4 +1,4 @@
-import { session, systemPreferences } from 'electron';
+import { session, systemPreferences, WebContents, WebFrameMain } from 'electron';
 import { isAllowedUrl } from './utils';
 
 const ALLOWED_PERMISSIONS = [
@@ -7,48 +7,145 @@ const ALLOWED_PERMISSIONS = [
   'mediaKeySystem',
   'clipboard-read',
   'clipboard-sanitized-write',
-];
+] as const;
+
+const CHECK_PERMISSIONS = [
+  'notifications',
+  'media',
+  'mediaKeySystem',
+  'clipboard-read',
+] as const;
+
+function isAllowedOrigin(origin: string): boolean {
+  if (!origin || origin === 'null' || origin === 'about:blank') {
+    return false;
+  }
+
+  try {
+    const url = origin.includes('://') ? origin : `https://${origin}`;
+    return isAllowedUrl(url);
+  } catch {
+    return false;
+  }
+}
+
+function collectFrameSources(frame: WebFrameMain | null, sources: string[]): void {
+  if (!frame || frame.isDestroyed()) {
+    return;
+  }
+
+  if (frame.origin) {
+    sources.push(frame.origin);
+  }
+  if (frame.url) {
+    sources.push(frame.url);
+  }
+}
+
+function getTrustedUrls(webContents: WebContents | null): string[] {
+  if (!webContents || webContents.isDestroyed()) {
+    return [];
+  }
+
+  const sources: string[] = [];
+  const currentUrl = webContents.getURL();
+  if (currentUrl) {
+    sources.push(currentUrl);
+  }
+
+  collectFrameSources(webContents.mainFrame, sources);
+
+  let opener = webContents.opener;
+  while (opener && !opener.isDestroyed()) {
+    collectFrameSources(opener, sources);
+    opener = opener.parent;
+  }
+
+  return sources;
+}
+
+function isTrustedWebContents(webContents: WebContents | null): boolean {
+  return getTrustedUrls(webContents).some((source) => isAllowedUrl(source) || isAllowedOrigin(source));
+}
+
+function isTrustedPermissionContext(
+  webContents: WebContents | null,
+  ...candidateOrigins: (string | undefined)[]
+): boolean {
+  if (candidateOrigins.some((origin) => origin && isAllowedOrigin(origin))) {
+    return true;
+  }
+
+  if (candidateOrigins.some((url) => url && isAllowedUrl(url))) {
+    return true;
+  }
+
+  return isTrustedWebContents(webContents);
+}
+
+function isAllowedPermission(permission: string): boolean {
+  return (ALLOWED_PERMISSIONS as readonly string[]).includes(permission);
+}
+
+function isAllowedCheckPermission(permission: string): boolean {
+  return (CHECK_PERMISSIONS as readonly string[]).includes(permission);
+}
 
 export async function requestMediaAccess(): Promise<void> {
-  if (process.platform === 'darwin') {
-    const micStatus = await systemPreferences.askForMediaAccess('microphone');
-    const camStatus = await systemPreferences.askForMediaAccess('camera');
-    console.log('Microphone access:', micStatus ? 'granted' : 'denied');
-    console.log('Camera access:', camStatus ? 'granted' : 'denied');
+  if (process.platform !== 'darwin') {
+    return;
+  }
+
+  const micStatus = systemPreferences.getMediaAccessStatus('microphone');
+  const camStatus = systemPreferences.getMediaAccessStatus('camera');
+  console.log('Microphone status:', micStatus);
+  console.log('Camera status:', camStatus);
+
+  if (micStatus !== 'granted') {
+    const granted = await systemPreferences.askForMediaAccess('microphone');
+    console.log('Microphone access:', granted ? 'granted' : 'denied');
+  }
+
+  if (camStatus !== 'granted') {
+    const granted = await systemPreferences.askForMediaAccess('camera');
+    console.log('Camera access:', granted ? 'granted' : 'denied');
   }
 }
 
 export function setupPermissions(): void {
-  // Handle permission requests from the page
   session.defaultSession.setPermissionRequestHandler(
-    (_webContents, permission, callback, details) => {
-      console.log('Permission request:', permission, details.requestingUrl);
+    (webContents, permission, callback, details) => {
+      console.log('Permission request:', permission, details.requestingUrl, details);
 
-      // Allow media permissions for messenger.com
-      if (details.requestingUrl && isAllowedUrl(details.requestingUrl)) {
-        if (ALLOWED_PERMISSIONS.includes(permission)) {
-          callback(true);
-          return;
-        }
+      if (!isAllowedPermission(permission)) {
+        callback(false);
+        return;
       }
-      callback(false);
+
+      const mediaDetails = details as { securityOrigin?: string };
+      const allowed = isTrustedPermissionContext(
+        webContents,
+        details.requestingUrl,
+        mediaDetails.securityOrigin
+      );
+
+      callback(allowed);
     }
   );
 
-  // Handle permission checks (required for camera/microphone to work)
   session.defaultSession.setPermissionCheckHandler(
-    (_webContents, permission, requestingOrigin) => {
-      const checkPermissions = [
-        'notifications',
-        'media',
-        'mediaKeySystem',
-        'clipboard-read',
-      ];
-
-      if (isAllowedUrl(requestingOrigin) && checkPermissions.includes(permission)) {
-        return true;
+    (webContents, permission, requestingOrigin, details) => {
+      if (!isAllowedCheckPermission(permission)) {
+        return false;
       }
-      return false;
+
+      return isTrustedPermissionContext(
+        webContents,
+        requestingOrigin,
+        details.securityOrigin,
+        details.requestingUrl,
+        details.embeddingOrigin
+      );
     }
   );
 }
