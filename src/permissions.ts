@@ -91,31 +91,47 @@ function isAllowedCheckPermission(permission: string): boolean {
   return (CHECK_PERMISSIONS as readonly string[]).includes(permission);
 }
 
+function isMediaPermission(permission: string): boolean {
+  return permission === 'media';
+}
+
+async function requestAccessIfNeeded(
+  mediaType: 'microphone' | 'camera'
+): Promise<boolean> {
+  const status = systemPreferences.getMediaAccessStatus(mediaType);
+  console.log(`${mediaType} status:`, status);
+
+  if (status === 'granted') {
+    return true;
+  }
+
+  const granted = await systemPreferences.askForMediaAccess(mediaType);
+  console.log(`${mediaType} access:`, granted ? 'granted' : 'denied');
+  return granted;
+}
+
 export async function requestMediaAccess(): Promise<void> {
   if (process.platform !== 'darwin') {
     return;
   }
 
-  const micStatus = systemPreferences.getMediaAccessStatus('microphone');
-  const camStatus = systemPreferences.getMediaAccessStatus('camera');
-  console.log('Microphone status:', micStatus);
-  console.log('Camera status:', camStatus);
+  await requestAccessIfNeeded('microphone');
+  await requestAccessIfNeeded('camera');
+}
 
-  if (micStatus !== 'granted') {
-    const granted = await systemPreferences.askForMediaAccess('microphone');
-    console.log('Microphone access:', granted ? 'granted' : 'denied');
-  }
-
-  if (camStatus !== 'granted') {
-    const granted = await systemPreferences.askForMediaAccess('camera');
-    console.log('Camera access:', granted ? 'granted' : 'denied');
-  }
+export async function ensureMediaAccess(): Promise<void> {
+  await requestMediaAccess();
 }
 
 export function setupPermissions(): void {
   session.defaultSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
       console.log('Permission request:', permission, details.requestingUrl, details);
+
+      if (isMediaPermission(permission)) {
+        callback(true);
+        return;
+      }
 
       if (!isAllowedPermission(permission)) {
         callback(false);
@@ -135,6 +151,10 @@ export function setupPermissions(): void {
 
   session.defaultSession.setPermissionCheckHandler(
     (webContents, permission, requestingOrigin, details) => {
+      if (isMediaPermission(permission)) {
+        return true;
+      }
+
       if (!isAllowedCheckPermission(permission)) {
         return false;
       }
