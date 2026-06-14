@@ -1,6 +1,6 @@
 import { app, shell } from 'electron';
 import { createWindow, getMainWindow } from './window';
-import { requestMediaAccess, setupPermissions } from './permissions';
+import { ensureMediaAccess, requestMediaAccess, setupPermissions } from './permissions';
 import { setupIpcHandlers } from './ipc';
 import { isAllowedUrl, USER_AGENT } from './utils';
 
@@ -20,9 +20,19 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('activate', () => {
+app.on('activate', async () => {
+  if (process.platform === 'darwin') {
+    await ensureMediaAccess();
+  }
+
   if (getMainWindow() === null) {
     createWindow();
+  }
+});
+
+app.on('browser-window-focus', async () => {
+  if (process.platform === 'darwin') {
+    await ensureMediaAccess();
   }
 });
 

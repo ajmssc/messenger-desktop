@@ -42,10 +42,13 @@
     ],
     "mac": {
       "category": "public.app-category.social-networking",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Messenger needs microphone access for voice and video calls.",
         "NSCameraUsageDescription": "Messenger needs camera access for video calls."
       },
+      "hardenedRuntime": true,
       "icon": "build/icon.png",
       "target": [
         {
