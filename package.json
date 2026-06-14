@@ -42,6 +42,10 @@
     ],
     "mac": {
       "category": "public.app-category.social-networking",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Messenger needs microphone access for voice and video calls.",
+        "NSCameraUsageDescription": "Messenger needs camera access for video calls."
+      },
       "icon": "build/icon.png",
       "target": [
         {
